@@ -18,6 +18,11 @@ builder.Services.AddHttpClient("PokéAPI", httpClient =>
     httpClient.BaseAddress = new Uri("https://pokeapi.co/api/v2/");
 });
 
+builder.Services.AddHttpClient("PokemonMinimalApi", client => {
+    client.BaseAddress = new Uri("http://localhost:5083/"); // URL della tua Minimal API
+});
+builder.Services.AddScoped<IPokedexClientService, PokedexClientService>();
+
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();

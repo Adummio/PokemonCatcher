@@ -2,6 +2,8 @@
 @using Pokemon.Core
 @using BlazorWebApp.Services
 @inject IPokemonService PokemonService
+@inject IPokedexClientService PokedexService
+
 @rendermode InteractiveServer
 
 <div class="container mt-5">
@@ -113,6 +115,8 @@
     private string? captureMessage;
     private string? lastCapturedName;
 
+    private string trainerId = "AshKetchum";
+
     protected override async Task OnInitializedAsync()
     {
         await GeneraNuovoIncontro();
@@ -141,9 +145,19 @@
 
         if (successo)
         {
-            lastCapturedName = pokemon.Name?.ToUpper();
-            isCaught = true; // Questo triggera la scomparsa della card tramite @else if (isCaught)
-            captureMessage = $"Hai catturato {lastCapturedName}!";
+            
+            var salvato = await PokedexService.SalvaPokemonAsync(trainerId, pokemon);
+
+            if (salvato)
+            {
+                lastCapturedName = pokemon.Name?.ToUpper();
+                isCaught = true;
+                captureMessage = $"Hai catturato {lastCapturedName}!";
+            }
+            else
+            {
+                captureMessage = "Errore di comunicazione con il server di salvataggio.";
+            }
             
             // TODO: Inserire qui la chiamata POST alla Minimal API per il salvataggio in memoria
         }
@@ -154,5 +168,6 @@
         }
 
         isCapturing = false;
+        StateHasChanged();
     }
 }
