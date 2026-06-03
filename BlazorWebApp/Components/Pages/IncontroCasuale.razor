@@ -1,0 +1,76 @@
+@page "/incontro-casuale"
+@using Pokemon.Core
+@using System.Text.Json
+@rendermode InteractiveServer
+@inject IHttpClientFactory ClientFactory
+
+<h3>Test PokéAPI</h3>
+
+<button class="btn btn-primary" @onclick="FetchPokemon">Carica Ditto (ID 132)</button>
+
+@if (loading)
+{
+    <p><em>Caricamento in corso...</em></p>
+}
+
+@if (errorMessage != null)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (pokemon != null)
+{
+    <div class="card mt-3" style="width: 18rem;">
+        <img src="@pokemon.Sprites.FrontDefault" class="card-img-top" alt="sprite">
+        <div class="card-body">
+            <h5 class="card-title">@pokemon.Name.ToUpper()</h5>
+            <p class="card-text">
+                <strong>ID:</strong> @pokemon.Id <br />
+                <strong>Abilità:</strong> @string.Join(", ", pokemon.Abilities.Select(a => a.Ability.Name)) <br />
+                <strong>Verso (Latest):</strong> <br />
+                <audio controls src="@pokemon.Cries.Latest"></audio>
+            </p>
+        </div>
+    </div>
+    
+    <pre class="bg-light p-3 mt-3">@jsonRaw</pre>
+}
+
+@code {
+    private PokemonModel? pokemon;
+    private string? jsonRaw;
+    private string? errorMessage;
+    private bool loading = false;
+
+    private async Task FetchPokemon()
+    {
+        Console.WriteLine("Inizio fetch...");
+        loading = true;
+        errorMessage = null;
+        pokemon = null;
+
+        try
+        {
+            // 1. Recuperiamo il client con il nome che hai registrato
+            var client = ClientFactory.CreateClient("PokéAPI");
+
+            // 2. Proviamo la deserializzazione automatica
+            // Usiamo "pokemon/132" perché l'indirizzo base finisce già con /v2/
+            pokemon = await client.GetFromJsonAsync<PokemonModel>("pokemon/132");
+
+            
+            Console.WriteLine($"Nome: {pokemon.Name}");
+
+            // 3. (Opzionale) Prendiamo il JSON grezzo per vedere cosa è arrivato effettivamente
+            //jsonRaw = JsonSerializer.Serialize(pokemon, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Errore: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}
