@@ -9,7 +9,8 @@
           content="default-src 'self'; 
                    script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; 
                    style-src 'self' 'unsafe-inline'; 
-                   connect-src 'self' https://pokeapi.co;">
+                   connect-src 'self' https://pokeapi.co;
+                   img-src 'self' data: https://raw.githubusercontent.com https://cdn.jsdelivr.net;">
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
