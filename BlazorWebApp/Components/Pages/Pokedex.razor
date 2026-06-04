@@ -1,9 +1,13 @@
 @page "/pokedex"
 @using Microsoft.AspNetCore.Authorization
 @using Pokemon.Core
+@using Pokemon.Grpc
+@using Grpc.Core
 @attribute [Authorize]
 @inject IPokedexClientService PokedexService
 @inject AuthenticationStateProvider AuthStateProvider
+@inject AudioService.AudioServiceClient AudioClient
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <div class="container mt-5 pb-5">
@@ -40,10 +44,14 @@
             @foreach (var pokemon in pokedex)
             {
                 <div class="col">
-                    <div class="pokedex-card h-100 shadow-sm animate-fade-in">
-                        <div class="card-header-mini d-flex justify-content-between p-2">
+                    @* L'intera card ora è cliccabile e riproduce il verso al click *@
+                    <div class="pokedex-card h-100 shadow-sm animate-fade-in" @onclick="() => RiproduciVerso(pokemon)" style="cursor: pointer;">
+                        <div class="card-header-mini d-flex justify-content-between p-2 align-items-center">
                             <span class="id-text">#@pokemon.Id.ToString("D3")</span>
-                            <i class="fas fa-circle-check text-success"></i>
+                            <div class="header-icons">
+                                <i class="fas fa-volume-up text-muted audio-icon-hint me-2"></i>
+                                <i class="fas fa-circle-check text-success"></i>
+                            </div>
                         </div>
                         
                         <div class="img-wrapper p-3 text-center">
@@ -75,13 +83,20 @@
         border-radius: 15px;
         border: 1px solid #334155;
         overflow: hidden;
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     }
 
     .pokedex-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 10px 20px rgba(0,0,0,0.4);
         border-color: #3b82f6;
+    }
+
+    /* Effetto visivo sull'icona audio quando si passa il mouse sulla card */
+    .pokedex-card:hover .audio-icon-hint {
+        color: #3b82f6 !important;
+        transform: scale(1.1);
+        transition: color 0.2s, transform 0.2s;
     }
 
     .card-header-mini { background: rgba(0,0,0,0.2); }
@@ -101,13 +116,17 @@
         color: white;
     }
 
-    /* Colori Tipi (Includili se non li hai nel MainLayout) */
+    /* Colori Tipi */
     .fire { background: #ef4444; }
     .water { background: #3b82f6; }
     .grass { background: #22c55e; }
     .electric { background: #eab308; color: black; }
     .poison { background: #a855f7; }
     .normal { background: #94a3b8; }
+    .bug { background: #84cc16; }
+    .flying { background: #38bdf8; }
+    .ground { background: #ca8a04; }
+    .fairy { background: #f472b6; }
 
     .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
     @@keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
@@ -121,7 +140,6 @@
     {
         loading = true;
         
-        // 1. Recupera l'utente
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
@@ -131,11 +149,42 @@
             
             if (!string.IsNullOrEmpty(trainerId))
             {
-                // 2. Chiama la Minimal API
                 pokedex = await PokedexService.GetPokedexAsync(trainerId);
             }
         }
 
         loading = false;
+    }
+
+    private async Task RiproduciVerso(PokemonModel targetPokemon)
+    {
+        // Estraiamo l'URL del verso dal modello
+        string urlIniezione = targetPokemon.Cries?.Latest ?? targetPokemon.Cries?.Legacy ?? "";
+        
+        if (string.IsNullOrWhiteSpace(urlIniezione)) return;
+
+        try
+        {
+            // Richiesta gRPC inviata tramite la pipeline sicura gRPC-Web (Porta 7066)
+            var call = AudioClient.GetPokemonCry(new AudioRequest { AudioUrl = urlIniezione });
+            using var memoryStream = new MemoryStream();
+
+            await foreach (var chunk in call.ResponseStream.ReadAllAsync())
+            {
+                await memoryStream.WriteAsync(chunk.Data.ToByteArray());
+            }
+
+            var audioBytes = memoryStream.ToArray();
+            if (audioBytes.Length > 0)
+            {
+                // Invocazione JavaScript interop legata alla tua CSP
+                await JS.InvokeVoidAsync("playByteArray", audioBytes);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Evita crash del circuito in caso di problemi di rete locali
+            Console.WriteLine($"[Pokédex Client] Impossibile riprodurre l'audio per {targetPokemon.Name}: {ex.Message}");
+        }
     }
 }
