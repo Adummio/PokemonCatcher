@@ -1,8 +1,12 @@
 @page "/incontro-casuale"
 @using Pokemon.Core
 @using BlazorWebApp.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
 @inject IPokemonService PokemonService
 @inject IPokedexClientService PokedexService
+
+@inject AuthenticationStateProvider AuthStateProvider
 
 @rendermode InteractiveServer
 
@@ -115,10 +119,27 @@
     private string? captureMessage;
     private string? lastCapturedName;
 
-    private string trainerId = "AshKetchum";
+    private string? trainerId;
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity is not null && user.Identity.IsAuthenticated)
+        {
+            // 2. Recuperiamo l'ID univoco dell'utente (di solito il GUID nel database)
+            trainerId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+            Console.WriteLine($"Trainer ID: {trainerId}");
+            
+            // Se la pagina deve solo mostrare i dati, carica qui il pokedex
+            // pokedex = await PokedexService.GetPokedexAsync(trainerId);
+        }
+        else
+        {
+            // L'utente non è loggato, reindirizzalo o mostra un errore
+            trainerId = null;
+        }
         await GeneraNuovoIncontro();
     }
 
