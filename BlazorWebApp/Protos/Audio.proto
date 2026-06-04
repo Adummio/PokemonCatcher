@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option csharp_namespace = "Pokemon.Grpc";
+
+service AudioService {
+  rpc GetPokemonCry (AudioRequest) returns (stream AudioChunk);
+}
+
+message AudioRequest {
+  string audio_url = 1;
+}
+
+message AudioChunk {
+  bytes data = 1;
+}

@@ -1,0 +1,190 @@
+@page "/pokedex"
+@using Microsoft.AspNetCore.Authorization
+@using Pokemon.Core
+@using Pokemon.Grpc
+@using Grpc.Core
+@attribute [Authorize]
+@inject IPokedexClientService PokedexService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject AudioService.AudioServiceClient AudioClient
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<div class="container mt-5 pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-5 border-bottom pb-3 border-secondary">
+        <h1 class="text-white fw-bold">
+            <i class="fas fa-th-large text-primary me-2"></i> Il Mio Pokédex
+        </h1>
+        <span class="badge bg-primary rounded-pill px-3 py-2">
+            @pokedex.Count Pokémon Catturati
+        </span>
+    </div>
+
+    @if (loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+            <p class="text-secondary mt-3">Caricando la tua collezione...</p>
+        </div>
+    }
+    else if (pokedex.Count == 0)
+    {
+        <div class="text-center py-5 bg-dark rounded-4 shadow-sm">
+            <i class="fas fa-ghost fa-4x text-secondary mb-3"></i>
+            <h3 class="text-white">Il tuo Pokédex è vuoto!</h3>
+            <p class="text-secondary mb-4">Vai nell'erba alta e cattura il tuo primo Pokémon.</p>
+            <a href="incontro-casuale" class="btn btn-primary px-4">
+                <i class="fas fa-plus"></i> Inizia Avventura
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+            @foreach (var pokemon in pokedex)
+            {
+                <div class="col">
+                    @* L'intera card ora è cliccabile e riproduce il verso al click *@
+                    <div class="pokedex-card h-100 shadow-sm animate-fade-in" @onclick="() => RiproduciVerso(pokemon)" style="cursor: pointer;">
+                        <div class="card-header-mini d-flex justify-content-between p-2 align-items-center">
+                            <span class="id-text">#@pokemon.Id.ToString("D3")</span>
+                            <div class="header-icons">
+                                <i class="fas fa-volume-up text-muted audio-icon-hint me-2"></i>
+                                <i class="fas fa-circle-check text-success"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="img-wrapper p-3 text-center">
+                            <img src="@(pokemon.Sprites?.Other?.OfficialArtwork?.FrontDefault ?? pokemon.Sprites?.FrontDefault)" 
+                                 class="img-fluid pokemon-thumb" alt="@pokemon.Name" />
+                        </div>
+
+                        <div class="card-body-mini p-3 text-center">
+                            <h5 class="text-white fw-bold mb-2">@pokemon.Name?.ToUpper()</h5>
+                            <div class="d-flex justify-content-center gap-1">
+                                @foreach (var type in pokemon.Types ?? [])
+                                {
+                                    <span class="mini-type-badge @type.Type?.Name?.ToLower()">
+                                        @type.Type?.Name?.ToUpper()
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .pokedex-card {
+        background: #1e293b;
+        border-radius: 15px;
+        border: 1px solid #334155;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .pokedex-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        border-color: #3b82f6;
+    }
+
+    /* Effetto visivo sull'icona audio quando si passa il mouse sulla card */
+    .pokedex-card:hover .audio-icon-hint {
+        color: #3b82f6 !important;
+        transform: scale(1.1);
+        transition: color 0.2s, transform 0.2s;
+    }
+
+    .card-header-mini { background: rgba(0,0,0,0.2); }
+    .id-text { color: #94a3b8; font-family: 'Courier New'; font-size: 0.8rem; }
+    
+    .img-wrapper { background: radial-gradient(circle, #334155 0%, #1e293b 70%); }
+    .pokemon-thumb { 
+        max-height: 120px; 
+        filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));
+    }
+
+    .mini-type-badge {
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.6rem;
+        font-weight: bold;
+        color: white;
+    }
+
+    /* Colori Tipi */
+    .fire { background: #ef4444; }
+    .water { background: #3b82f6; }
+    .grass { background: #22c55e; }
+    .electric { background: #eab308; color: black; }
+    .poison { background: #a855f7; }
+    .normal { background: #94a3b8; }
+    .bug { background: #84cc16; }
+    .flying { background: #38bdf8; }
+    .ground { background: #ca8a04; }
+    .fairy { background: #f472b6; }
+
+    .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    @@keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+</style>
+
+@code {
+    private List<PokemonModel> pokedex = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loading = true;
+        
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var trainerId = user.FindFirst(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            if (!string.IsNullOrEmpty(trainerId))
+            {
+                pokedex = await PokedexService.GetPokedexAsync(trainerId);
+            }
+        }
+
+        loading = false;
+    }
+
+    private async Task RiproduciVerso(PokemonModel targetPokemon)
+    {
+        // Estraiamo l'URL del verso dal modello
+        string urlIniezione = targetPokemon.Cries?.Latest ?? targetPokemon.Cries?.Legacy ?? "";
+        
+        if (string.IsNullOrWhiteSpace(urlIniezione)) return;
+
+        try
+        {
+            // Richiesta gRPC inviata tramite la pipeline sicura gRPC-Web (Porta 7066)
+            var call = AudioClient.GetPokemonCry(new AudioRequest { AudioUrl = urlIniezione });
+            using var memoryStream = new MemoryStream();
+
+            await foreach (var chunk in call.ResponseStream.ReadAllAsync())
+            {
+                await memoryStream.WriteAsync(chunk.Data.ToByteArray());
+            }
+
+            var audioBytes = memoryStream.ToArray();
+            if (audioBytes.Length > 0)
+            {
+                // Invocazione JavaScript interop legata alla tua CSP
+                await JS.InvokeVoidAsync("playByteArray", audioBytes);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Evita crash del circuito in caso di problemi di rete locali
+            Console.WriteLine($"[Pokédex Client] Impossibile riprodurre l'audio per {targetPokemon.Name}: {ex.Message}");
+        }
+    }
+}
