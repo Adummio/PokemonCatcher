@@ -48,7 +48,7 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
         {
             await signInManager.SignOutAsync();
             return TypedResults.LocalRedirect($"~/{returnUrl}");
-        }).DisableAntiforgery();
+        }).DisableAntiforgery(); //Disable antiforgery per questo endpoint se no non fa fare il logout
 
         accountGroup.MapPost("/PasskeyCreationOptions", async (
             HttpContext context,
