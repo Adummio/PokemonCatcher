@@ -37,8 +37,8 @@ public class PokedexServiceTests
     {
         // Arrange
         var trainerId = "trainer_123";
-        var mockList = new List<PokemonModel>
-        {
+        var mockList = new List<PokemonModel> 
+        { 
             new() { Id = 1, Name = "bulbasaur" },
             new() { Id = 4, Name = "charmander" }
         };
@@ -124,6 +124,6 @@ public class PokedexServiceTests
         var result = await service.SalvaPokemonAsync("trainer1", new PokemonModel { Name = "Pikachu" });
 
         // Assert
-        Assert.False(result);
+        Assert.False(result); 
     }
 }

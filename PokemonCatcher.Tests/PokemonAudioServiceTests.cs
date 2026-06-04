@@ -1,11 +1,7 @@
-using Xunit;
 using Moq;
 using Moq.Protected;
 using System.Net;
 using Grpc.Core;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Pokemon.Grpc; 
 using BlazorWebApp.Services;
 
