@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="BlazorWebApp/BlazorWebApp.csproj" />
   <Project Path="Pokemon.Core/Pokemon.Core.csproj" />
+  <Project Path="PokemonCatcher.Tests/PokemonCatcher.Tests.csproj" />
   <Project Path="PokemonMinimalApi/PokemonMinimalApi.csproj" />
 </Solution>
